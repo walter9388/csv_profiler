@@ -40,13 +40,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     // c.bench_function("fib 2", |b| b.iter(|| fibonacci2(black_box(20))));
     for (i, x) in vec![TEST_CSV_1, TEST_CSV_2].iter().enumerate() {
         c.bench_function(format!("count - test_csv{}", i + 1).as_str(), |b| {
-            b.iter(|| csv_profiler::profiler::count(black_box(get_buf(x))));
+            b.iter(|| csv_profiler::stats::stats::count(black_box(get_buf(x))));
         });
         c.bench_function(format!("count1 - test_csv{}", i + 1).as_str(), |b| {
-            b.iter(|| csv_profiler::profiler::count_alt(black_box(get_buf(x))));
+            b.iter(|| csv_profiler::stats::stats::count_alt(black_box(get_buf(x))));
         });
         c.bench_function(format!("count_eclark - test_csv{}", i + 1).as_str(), |b| {
-            b.iter(|| csv_profiler::profiler::count_eclark(black_box(get_buf(x))));
+            b.iter(|| csv_profiler::stats::stats::count_eclark(black_box(get_buf(x))));
         });
     }
 }

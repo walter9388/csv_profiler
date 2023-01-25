@@ -1,19 +1,41 @@
-use crate::datatypes::datatypes;
+use crate::{datatypes::datatypes, stats::stats::count};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader},
 };
-extern crate bytecount;
 
-// #[derive(Debug)]
-// enum Datatype {
-//     Integer,
-//     String,
-// }
-struct Test {
-    datatypes: Option<datatypes::Datatype>,
+enum InputType {
+    File(&'static str),
+    String,
 }
-impl datatypes::IdentifyType for Test {
+
+pub struct Profile {
+    inputtype: InputType,
+    datatypes: Option<datatypes::Datatype>,
+    buf: Option<BufReader<Box<dyn io::Read>>>,
+}
+
+impl Default for Profile {
+    fn default() -> Profile {
+        Profile {
+            inputtype: InputType::String,
+            datatypes: None,
+            buf: None,
+        }
+    }
+}
+// impl io::Read for Profile {
+//     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+//         Ok(buf.len() as usize)
+//     }
+// }
+// impl BufRead for Profile {
+//     fn fill_buf(&mut self) -> io::Result<&[u8]> {
+//         Ok(&[1 as u8])
+//     }
+//     fn consume(&mut self, amt: usize) {}
+// }
+impl datatypes::IdentifyType for Profile {
     fn get_datatype(&self) -> &Option<datatypes::Datatype> {
         &self.datatypes
     }
@@ -21,95 +43,103 @@ impl datatypes::IdentifyType for Test {
         self.datatypes = a;
     }
 }
-
-// #[derive(Debug)]
-// struct Column<'a> {
-//     name: &'a str,
-//     datatype: datatypes::Datatype,
-// }
-
-// fn read_file(filename: &str) -> io::Result<File> {
-//     let f = File::open(filename)?;
-//     Ok(f)
-// }
-fn get_buf(filename: &str) -> BufReader<File> {
-    let f = match File::open(filename) {
-        Err(why) => panic!("Can't open file: {} ({})", filename, why),
-        Ok(file) => file,
-    };
-    BufReader::with_capacity(1024 * 32, f)
-}
-
-// fn get_buf(file: File) -> BufReader<File> {
-//     BufReader::with_capacity(1024 * 32, file)
-// }
-
-pub fn profile(filename: &str) {
-    println!("{:?}", get_headers(get_buf(filename)));
-    for i in get_headers(get_buf(filename)).iter() {
-        println!("{}", i);
+const BUF_CAPACITY: usize = 1024 * 32;
+impl Profile {
+    pub fn new(s: &'static str) -> Self {
+        Profile {
+            inputtype: InputType::String,
+            buf: Some(BufReader::with_capacity(
+                BUF_CAPACITY,
+                Box::new(s.as_bytes()),
+            )),
+            ..Default::default()
+        }
     }
 
-    println!("{}", count(get_buf(filename)));
-    println!("{}", count_alt(get_buf(filename)));
-    println!("{:?}", first_col(get_buf(filename)));
-    println!("{:?}", all_col(get_buf(filename)));
-    println!("{}", count(get_buf(filename)));
-    println!("{}", count_alt(get_buf(filename)));
-    println!("{:?}", count_eclark(get_buf(filename)));
-    first_col(get_buf(filename));
-    all_col(get_buf(filename));
+    // https://stackoverflow.com/questions/45882329/read-large-files-line-by-line-in-rust
+    // fn get_buf_<R: io::Read>(mut self) {
+    //     let f: Box<dyn io::Read> = match self.inputtype {
+    //         InputType::String => Box::new(s.as_bytes()),
+    //         InputType::File(filename) => Box::new(match File::open(filename) {
+    //             Err(why) => panic!("Can't open file: {} ({})", filename, why),
+    //             Ok(file) => file,
+    //         }),
+    //     };
+    //     self.buf = Some(BufReader::with_capacity(BUF_CAPACITY, f));
+    // }
 
-    let _a = Test { datatypes: None };
-}
-
-// https://stackoverflow.com/questions/45882329/read-large-files-line-by-line-in-rust
-
-#[inline]
-pub fn count(buf: BufReader<File>) -> i32 {
-    buf.lines().into_iter().count() as i32
-}
-#[inline]
-pub fn count_alt(buf: BufReader<File>) -> i32 {
-    buf.lines()
-        .into_iter()
-        .enumerate()
-        .fold(0, |sum, _| sum + 1)
-}
-// pub fn count_eclark(buf: BufReader<File>) -> i32 {
-//     // inspired by eclarke: https://github.com/eclarke/linecount/blob/master/src/lib.rs
-//     buf.lines().into_iter().count() as i32
-#[inline]
-pub fn count_eclark(mut reader: BufReader<File>) -> Result<i32, io::Error> {
-    let mut count = 0;
-    loop {
-        let len = {
-            let buf = reader.fill_buf()?;
-            if buf.is_empty() {
-                break;
-            }
-            count += bytecount::count(&buf, b'\n');
-            buf.len()
+    fn remake(mut self) {
+        self.buf = match self.inputtype {
+            InputType::String => None,
+            InputType::File(s) => Profile::from(s).buf,
         };
-        reader.consume(len);
     }
-    Ok(count as i32)
+
+    pub fn count_only(self) -> Result<i32, io::Error> {
+        // count
+        let count_ = count(self.buf.unwrap());
+        println!("{:?}", count_);
+
+        // TODO: make the remake function work with the borrow checker
+        // call remake (remakes buffer for files)
+        // self.remake();
+
+        // return count
+        count_
+    }
+
+    pub fn profile(self) {
+        // let count_ = Profile::new("asdfasdf\n\n\nasdf");
+        // println!("{:?}", self.count_only());
+
+        // println!("{:?}", get_headers(self.buf.unwrap()));
+        for i in get_headers(self.buf.unwrap()).iter() {
+            println!("{}", i);
+        }
+
+        // println!("{}", count(get_buf(filename)));
+        // println!("{}", count_alt(get_buf(filename)));
+        // println!("{:?}", first_col(get_buf(filename)));
+        // println!("{:?}", all_col(get_buf(filename)));
+        // println!("{}", count(get_buf(filename)));
+        // println!("{}", count_alt(get_buf(filename)));
+        // println!("{:?}", count_eclark(get_buf(filename)));
+        // first_col(get_buf(filename));
+        // all_col(get_buf(filename));
+    }
 }
-fn first_col(buf: BufReader<File>) -> Vec<String> {
+
+impl From<&'static str> for Profile {
+    fn from(filename: &'static str) -> Self {
+        // read file from filename
+        let file = match File::open(filename) {
+            Err(why) => panic!("Can't open file: {} ({})", filename, why),
+            Ok(file) => Box::new(file) as Box<dyn io::Read>,
+        };
+        // make Profile struct with inputtype and buf updated correctly
+        Profile {
+            inputtype: InputType::File(filename),
+            buf: Some(BufReader::with_capacity(BUF_CAPACITY, file)),
+            ..Default::default()
+        }
+    }
+}
+
+fn first_col<F: io::Read>(buf: BufReader<F>) -> Vec<String> {
     let mut first_word: Vec<String> = Vec::new();
     for line in buf.lines() {
         first_word.push(line.unwrap().split(",").next().unwrap_or("").to_string());
     }
     first_word
 }
-fn all_col(buf: BufReader<File>) {
+fn all_col<F: io::Read>(buf: BufReader<F>) {
     for line in buf.lines() {
         for (i, col) in line.unwrap().split(",").enumerate() {
             println!("{}: {}", i, col);
         }
     }
 }
-fn get_headers(buf: BufReader<File>) -> Vec<String> {
+fn get_headers<F: io::Read>(buf: BufReader<F>) -> Vec<String> {
     buf.lines()
         .next()
         .unwrap()
