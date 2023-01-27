@@ -1,24 +1,13 @@
 pub mod stats {
-    use std::{
-        fs::File,
-        io::BufRead,
-        io::Error,
-        io::{self, BufReader},
-    };
+    use std::{io, io::BufRead, io::BufReader};
 
     #[inline]
-    pub fn count<F: io::Read>(buf: BufReader<F>) -> Result<i32, io::Error> {
-        Ok(buf.lines().into_iter().count() as i32)
+    pub fn count<F: io::Read>(buf: BufReader<F>) -> Result<u32, io::Error> {
+        Ok(buf.lines().into_iter().count() as u32)
     }
-    // pub fn count(f: &File) -> Result<i32, io::Error> {
-    //     Ok(BufReader::with_capacity(1024 * 32, f)
-    //         .lines()
-    //         .into_iter()
-    //         .count() as i32)
-    // }
 
     #[inline]
-    pub fn count_alt<F: io::Read>(buf: BufReader<F>) -> Result<i32, io::Error> {
+    pub fn count_alt<F: io::Read>(buf: BufReader<F>) -> Result<u32, io::Error> {
         Ok(buf
             .lines()
             .into_iter()
@@ -27,7 +16,7 @@ pub mod stats {
     }
 
     #[inline]
-    pub fn count_eclark<F: io::Read>(mut reader: BufReader<F>) -> Result<i32, io::Error> {
+    pub fn count_eclark<F: io::Read>(mut reader: BufReader<F>) -> Result<u32, io::Error> {
         // inspired by eclarke: https://github.com/eclarke/linecount/blob/master/src/lib.rs
         let mut count = 0;
         loop {
@@ -41,7 +30,7 @@ pub mod stats {
             };
             reader.consume(len);
         }
-        Ok(count as i32)
+        Ok(count as u32)
     }
 
     fn get_buf<F: io::Read>(file: F) -> BufReader<F> {

@@ -11,7 +11,7 @@ enum InputType {
 
 pub struct Profile {
     inputtype: InputType,
-    datatypes: Option<datatypes::Datatype>,
+    datatypes: Option<datatypes::RustDatatype>,
     buf: Option<BufReader<Box<dyn io::Read>>>,
 }
 
@@ -36,11 +36,11 @@ impl Default for Profile {
 //     fn consume(&mut self, amt: usize) {}
 // }
 impl datatypes::IdentifyType for Profile {
-    fn get_datatype(&self) -> &Option<datatypes::Datatype> {
+    fn get_datatype(&self) -> &Option<datatypes::RustDatatype> {
         &self.datatypes
     }
-    fn set_datatype(&mut self, a: Option<datatypes::Datatype>) {
-        self.datatypes = a;
+    fn set_datatype(&mut self, a: &Option<datatypes::RustDatatype>) {
+        self.datatypes = *a;
     }
 }
 const BUF_CAPACITY: usize = 1024 * 32;
@@ -75,7 +75,7 @@ impl Profile {
         };
     }
 
-    pub fn count_only(self) -> Result<i32, io::Error> {
+    pub fn count_only(self) -> Result<u32, io::Error> {
         // count
         let count_ = count(self.buf.unwrap());
         println!("{:?}", count_);
