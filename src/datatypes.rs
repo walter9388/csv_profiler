@@ -168,8 +168,14 @@ pub mod datatypes {
             if self.is_type(input, is_::<f64>, &RustDatatype::F64) {
                 return;
             }
-            if self.is_type(input, is_char, &RustDatatype::CHAR) {
-                return;
+            // only check for char if previously a type with a possibiliy of length=1 (or None)
+            match self.get_datatype() {
+                Some(RustDatatype::U8) | Some(RustDatatype::BOOL) | None => {
+                    if self.is_type(input, is_char, &RustDatatype::CHAR) {
+                        return;
+                    }
+                }
+                _ => (),
             }
             if let Some(datetime) = is_datetime(input, None) {
                 self.set_datatype(&Some(RustDatatype::DATETYPE(datetime)));
@@ -186,10 +192,17 @@ pub mod datatypes {
     }
 
     fn is_char(_x: &str) -> bool {
+        if _x.len() == 1 {
+            return true;
+        }
         false
     }
 
+    const BOOL_POSSIBILITIES: [&'static str; 6] = ["0", "1", "f", "t", "true", "false"];
     fn is_bool(_x: &str) -> bool {
+        if BOOL_POSSIBILITIES.contains(&_x.to_lowercase().as_str()) {
+            return true;
+        }
         false
     }
 
@@ -260,12 +273,8 @@ pub mod datatypes {
         // }
 
         #[test]
-        fn simple_checks() {
-            check!("", None);
-            check!(
-                "Mary had a little lamb!!?!@][1234x",
-                Some(RustDatatype::STRING)
-            );
+        fn simple_checks_numbers() {
+            // (test, expected_result)
             check!(&u8::max_value().to_string(), Some(RustDatatype::U8));
             check!(
                 &((u8::max_value() as u128 + 1).to_string()),
@@ -290,15 +299,46 @@ pub mod datatypes {
             check!("123", Some(RustDatatype::U8));
             check!("123.0", Some(RustDatatype::F32));
             check!("1210", Some(RustDatatype::U16));
-            check!("0", Some(RustDatatype::U8));
+            check!("0", Some(RustDatatype::BOOL));
             check!("-123.0", Some(RustDatatype::F32));
             check!("-123", Some(RustDatatype::I8));
         }
 
         #[test]
+        fn simple_checks_other() {
+            // (test, expected_result)
+            check!("", None);
+            check!(
+                "Mary had a little lamb!!?!@][1234x",
+                Some(RustDatatype::STRING)
+            );
+            check!("0", Some(RustDatatype::BOOL));
+            check!("1", Some(RustDatatype::BOOL));
+            check!("false", Some(RustDatatype::BOOL));
+            check!("TRUE", Some(RustDatatype::BOOL));
+            check!("tRuE", Some(RustDatatype::BOOL));
+            check!("T", Some(RustDatatype::BOOL));
+            check!("@", Some(RustDatatype::CHAR));
+            check!(" ", Some(RustDatatype::CHAR));
+            check!("\t", Some(RustDatatype::CHAR));
+        }
+
+        #[test]
         fn with_assumptions() {
+            // (test, expected_result, assumption)
             check!("", Some(RustDatatype::F32), Some(RustDatatype::F32));
             check!("aa", Some(RustDatatype::STRING), Some(RustDatatype::F32));
+            check!("aa", Some(RustDatatype::STRING), Some(RustDatatype::F32));
+            check!("a", Some(RustDatatype::CHAR), Some(RustDatatype::U8));
+            check!("T", Some(RustDatatype::BOOL), None);
+            check!("T", Some(RustDatatype::BOOL), Some(RustDatatype::BOOL));
+            check!("T", Some(RustDatatype::CHAR), Some(RustDatatype::CHAR));
+            check!("T", Some(RustDatatype::STRING), Some(RustDatatype::STRING));
+            check!("0", Some(RustDatatype::BOOL), None);
+            check!("0", Some(RustDatatype::BOOL), Some(RustDatatype::BOOL));
+            check!("0", Some(RustDatatype::U8), Some(RustDatatype::U8));
+            check!("0", Some(RustDatatype::CHAR), Some(RustDatatype::CHAR));
+            check!("0", Some(RustDatatype::STRING), Some(RustDatatype::STRING));
         }
     }
 }
