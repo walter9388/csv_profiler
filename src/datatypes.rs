@@ -1,7 +1,8 @@
 pub mod datatypes {
-    use std::str::FromStr;
+    use chrono::{NaiveDate, NaiveDateTime};
+    use std::{collections::HashSet, str::FromStr};
 
-    #[derive(PartialEq, Clone, Copy, Debug)]
+    #[derive(PartialEq, Clone, Debug)]
     pub enum RustDatatype {
         BOOL,
         U8,
@@ -17,7 +18,8 @@ pub mod datatypes {
         F32,
         F64,
         CHAR,
-        DATETYPE(&'static str),
+        // DATETYPE(Vec<&'static str>),
+        DATETYPE(HashSet<&'static str>),
         STRING,
     }
 
@@ -31,10 +33,10 @@ pub mod datatypes {
             func: fn(&str) -> bool,
             datatype: &RustDatatype,
         ) -> bool {
-            if *self.get_datatype() != Some(*datatype) {
+            if *self.get_datatype() != Some(datatype.clone()) {
                 println!("{:?} {:?}", datatype, func(input));
                 if func(input) {
-                    self.set_datatype(&Some(*datatype));
+                    self.set_datatype(&Some(datatype.clone()));
                     return true;
                 }
             }
@@ -51,7 +53,17 @@ pub mod datatypes {
             match self.get_datatype() {
                 Some(RustDatatype::STRING) => return,
                 Some(RustDatatype::DATETYPE(s)) => {
-                    if let Some(_datetime) = is_datetime(input, Some(s)) {
+                    // only do if s.len() > 1
+                    if s.len() > 0 {
+                        match is_datetime(input, Some(s.clone())) {
+                            Some(_datetime) => {
+                                // update datetime HashSet if it has been reduced
+                                if s.len() != _datetime.len() {
+                                    self.set_datatype(&Some(RustDatatype::DATETYPE(_datetime)));
+                                }
+                            }
+                            None => self.set_datatype(&Some(RustDatatype::STRING)),
+                        }
                         return;
                     }
                 }
@@ -200,10 +212,7 @@ pub mod datatypes {
 
     const BOOL_POSSIBILITIES: [&'static str; 6] = ["0", "1", "f", "t", "true", "false"];
     fn is_bool(_x: &str) -> bool {
-        if BOOL_POSSIBILITIES.contains(&_x.to_lowercase().as_str()) {
-            return true;
-        }
-        false
+        BOOL_POSSIBILITIES.contains(&_x.to_lowercase().as_str())
     }
 
     fn is_<T>(x: &str) -> bool
@@ -213,11 +222,59 @@ pub mod datatypes {
         x.parse::<T>().is_ok()
     }
 
-    fn is_datetime(_x: &str, _format: Option<&str>) -> Option<&'static str> {
-        if _x == "hello" {
-            return Some("datetime string");
+    fn is_datetime(
+        _x: &str,
+        format: Option<HashSet<&'static str>>,
+    ) -> Option<HashSet<&'static str>> {
+        // let temp = NaiveDate::parse_from_str("2001-01-01", "%Y-%m-%d");
+        // println!("{:?}", temp);
+
+        let mut a = format.clone().unwrap_or(HashSet::new());
+
+        // if format is not empty, just check those ones
+        if a.len() > 0 {
+            for i in a.clone() {
+                match NaiveDate::parse_from_str(_x, i) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        a.remove(i);
+                    }
+                };
+            }
+        }
+        // otherwise check everything (combinations found here:
+        // https://docs.rs/chrono/0.4.23/chrono/format/strftime/index.html)
+        // TODO: There is probs a better way to do this rather than list everything out...
+        else {
+            match _x.len() {
+                10 => {
+                    date_check(&mut a, _x, "%Y-%m-%d");
+                    date_check(&mut a, _x, "%Y/%m/%d");
+                    date_check(&mut a, _x, "%Y.%m.%d");
+                    date_check(&mut a, _x, "%Y-%d-%m");
+                    date_check(&mut a, _x, "%Y/%d/%m");
+                    date_check(&mut a, _x, "%Y.%d.%m");
+                }
+                _ => (),
+            }
+        }
+
+        if a.len() > 0 {
+            return Some(a);
         }
         None
+    }
+
+    fn date_check(aa: &mut HashSet<&'static str>, x: &str, f: &'static str) {
+        if NaiveDate::parse_from_str(x, f).is_ok() {
+            aa.insert(f);
+        }
+    }
+
+    fn datetime_check(aa: &mut HashSet<&'static str>, x: &str, f: &'static str) {
+        if NaiveDateTime::parse_from_str(x, f).is_ok() {
+            aa.insert(f);
+        }
     }
 
     #[cfg(test)]
@@ -236,7 +293,7 @@ pub mod datatypes {
                 &self.datatypes
             }
             fn set_datatype(&mut self, a: &Option<RustDatatype>) {
-                self.datatypes = *a;
+                self.datatypes = a.clone();
             }
         }
 
@@ -340,53 +397,55 @@ pub mod datatypes {
             check!("0", Some(RustDatatype::CHAR), Some(RustDatatype::CHAR));
             check!("0", Some(RustDatatype::STRING), Some(RustDatatype::STRING));
         }
+
+        #[test]
+        fn datetime_checks() {
+            // (test, expected_result)
+            check!(
+                "2001-01-01",
+                Some(RustDatatype::DATETYPE(HashSet::from([
+                    "%Y-%m-%d", "%Y-%d-%m"
+                ])))
+            );
+            check!(
+                "2001-13-01",
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%d-%m"])))
+            );
+            check!(
+                "2001-01-13",
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%m-%d"])))
+            );
+            check!(
+                "2001/01/13",
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y/%m/%d"])))
+            );
+        }
+        #[test]
+
+        fn datetime_checks_with_assumption() {
+            // (test, expected_result, assumption)
+            check!(
+                "2001-01-01",
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%m-%d"]))),
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%m-%d"])))
+            );
+            check!(
+                "2001-01-21",
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%m-%d"]))),
+                Some(RustDatatype::DATETYPE(HashSet::from([
+                    "%Y-%m-%d", "%Y-%d-%m"
+                ])))
+            );
+            check!(
+                "2001-13-01",
+                Some(RustDatatype::STRING),
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%m-%d"])))
+            );
+            check!(
+                "2001-01-13",
+                Some(RustDatatype::STRING),
+                Some(RustDatatype::DATETYPE(HashSet::from(["%Y-%d-%m"])))
+            );
+        }
     }
 }
-
-// // // // OLD // // //
-// // pub fn identify_type(input: &str, current_assumption: Option<Datatype>) -> Option<Datatype> {
-// //     // check if empty
-// //     if is_empty(input) {
-// //         return current_assumption;
-// //     };
-// //
-// //     // check current_assumption first (maintain if empty)
-// //     match current_assumption {
-// //         Some(Datatype::String) => return current_assumption,
-// //         Some(Datatype::Float) => {
-// //             if is_::<f32>(input) {
-// //                 return current_assumption;
-// //             }
-// //         }
-// //         Some(Datatype::Integer) => {
-// //             if is_::<i32>(input) {
-// //                 return current_assumption;
-// //             }
-// //         }
-// //         Some(Datatype::Datetime) => {
-// //             if is_datetime(input) {
-// //                 return current_assumption;
-// //             }
-// //         }
-// //         None => (),
-// //     }
-// //
-// //     // check to see if Datatype::Integer
-// //     if is_type(input, is_::<i32>, Datatype::Integer, &current_assumption) {
-// //         return Some(Datatype::Integer);
-// //     }
-// //     // check to see if Datatype::Float
-// //     if is_type(input, is_::<f32>, Datatype::Float, &current_assumption) {
-// //         return Some(Datatype::Float);
-// //     }
-// //     // check to see if Datatype::Datetime
-// //     if is_type(input, is_datetime, Datatype::Datetime, &current_assumption) {
-// //         return Some(Datatype::Datetime);
-// //     }
-// //     // check to see if Datatype::Empty
-// //     if input.len() == 0 {
-// //         return None;
-// //     };
-// //     // if nothing else, leave as Datatype::String
-// //     Some(Datatype::String)
-// // }

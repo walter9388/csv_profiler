@@ -40,7 +40,7 @@ impl datatypes::IdentifyType for Profile {
         &self.datatypes
     }
     fn set_datatype(&mut self, a: &Option<datatypes::RustDatatype>) {
-        self.datatypes = *a;
+        self.datatypes = a.clone();
     }
 }
 const BUF_CAPACITY: usize = 1024 * 32;
