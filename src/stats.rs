@@ -33,41 +33,42 @@ pub mod stats {
         Ok(count as u32)
     }
 
-    fn get_buf<F: io::Read>(file: F) -> BufReader<F> {
-        BufReader::with_capacity(1024 * 32, file)
-    }
-
     #[cfg(test)]
     mod tests {
         use crate::stats::stats;
+        use std::io::{self, BufReader};
 
         const TEXT1: &[u8] = b"text\nwith\nfour\nlines\n";
         const TEXT2: &[u8] = b"text\nwith\nfour\nlines";
 
+        fn get_buf<F: io::Read>(file: F) -> BufReader<F> {
+            BufReader::with_capacity(1024 * 32, file)
+        }
+
         #[test]
         fn count() {
-            assert_eq!(stats::count(stats::get_buf(TEXT1)).unwrap(), 4);
+            assert_eq!(stats::count(get_buf(TEXT1)).unwrap(), 4);
         }
         #[test]
         fn count_no_end_newline() {
-            assert_eq!(stats::count(stats::get_buf(TEXT2)).unwrap(), 4);
+            assert_eq!(stats::count(get_buf(TEXT2)).unwrap(), 4);
         }
         #[test]
         fn count_alt() {
-            assert_eq!(stats::count_alt(stats::get_buf(TEXT1)).unwrap(), 4);
+            assert_eq!(stats::count_alt(get_buf(TEXT1)).unwrap(), 4);
         }
         #[test]
         fn count_alt_no_end_newline() {
-            assert_eq!(stats::count_alt(stats::get_buf(TEXT2)).unwrap(), 4);
+            assert_eq!(stats::count_alt(get_buf(TEXT2)).unwrap(), 4);
         }
         #[test]
         fn count_eclark() {
-            assert_eq!(stats::count_eclark(stats::get_buf(TEXT1)).unwrap(), 4);
+            assert_eq!(stats::count_eclark(get_buf(TEXT1)).unwrap(), 4);
         }
         #[test]
         #[should_panic] // known issue where it can't handle the last \n missing
         fn count_eclark_no_end_newline() {
-            assert_eq!(stats::count_eclark(stats::get_buf(TEXT2)).unwrap(), 4);
+            assert_eq!(stats::count_eclark(get_buf(TEXT2)).unwrap(), 4);
         }
     }
 }

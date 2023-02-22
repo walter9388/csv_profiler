@@ -34,7 +34,7 @@ pub mod datatypes {
             datatype: &RustDatatype,
         ) -> bool {
             if *self.get_datatype() != Some(datatype.clone()) {
-                println!("{:?} {:?}", datatype, func(input));
+                // println!("{:?} {:?}", datatype, func(input));
                 if func(input) {
                     self.set_datatype(&Some(datatype.clone()));
                     return true;
@@ -43,7 +43,7 @@ pub mod datatypes {
             false
         }
 
-        fn identify_type_(&mut self, input: &str) {
+        fn identify_type(&mut self, input: &str) {
             // check if empty
             if input.len() == 0 {
                 return;
@@ -302,7 +302,7 @@ pub mod datatypes {
             ($input:expr, $expected:expr) => {
                 let mut a = Test { datatypes: None };
                 // println!("before: {:?}", a.datatypes);
-                a.identify_type_($input);
+                a.identify_type($input);
                 // println!("after: {:?}", a.datatypes);
                 assert_eq!(a.datatypes, $expected);
             };
@@ -311,23 +311,11 @@ pub mod datatypes {
                     datatypes: $assumed,
                 };
                 // println!("before: {:?}", a.datatypes);
-                a.identify_type_($input);
+                a.identify_type($input);
                 // println!("after: {:?}", a.datatypes);
                 assert_eq!(a.datatypes, $expected);
             };
         }
-        // // // OLD // // //
-        // macro_rules! check {
-        //     ($input:expr, $expected:expr) => {
-        //         assert_eq!(identify_type($input, None), $expected);
-        //         // for i in RustDatatype::iter() {
-        //         //     assert_eq!(identify_type($input, Some(i)), $expected);
-        //         // }
-        //     };
-        //     ($input:expr, $expected:expr, $assumed:expr) => {
-        //         assert_eq!(identify_type($input, $assumed), $expected);
-        //     };
-        // }
 
         #[test]
         fn simple_checks_numbers() {

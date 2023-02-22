@@ -1,8 +1,17 @@
-use crate::{datatypes::datatypes, stats::stats::count};
+use crate::{
+    datatypes::datatypes::{self, IdentifyType},
+    stats::stats::count,
+};
 use std::{
     fs::File,
     io::{self, BufRead, BufReader},
 };
+
+#[derive(Debug)]
+pub struct Column {
+    name: String,
+    datatype: Option<datatypes::RustDatatype>,
+}
 
 enum InputType {
     File(&'static str),
@@ -11,7 +20,7 @@ enum InputType {
 
 pub struct Profile {
     inputtype: InputType,
-    datatypes: Option<datatypes::RustDatatype>,
+    columns: Option<Vec<Column>>,
     buf: Option<BufReader<Box<dyn io::Read>>>,
 }
 
@@ -19,7 +28,7 @@ impl Default for Profile {
     fn default() -> Profile {
         Profile {
             inputtype: InputType::String,
-            datatypes: None,
+            columns: None,
             buf: None,
         }
     }
@@ -35,12 +44,12 @@ impl Default for Profile {
 //     }
 //     fn consume(&mut self, amt: usize) {}
 // }
-impl datatypes::IdentifyType for Profile {
+impl datatypes::IdentifyType for Column {
     fn get_datatype(&self) -> &Option<datatypes::RustDatatype> {
-        &self.datatypes
+        &self.datatype
     }
     fn set_datatype(&mut self, a: &Option<datatypes::RustDatatype>) {
-        self.datatypes = a.clone();
+        self.datatype = a.clone();
     }
 }
 const BUF_CAPACITY: usize = 1024 * 32;
@@ -88,24 +97,38 @@ impl Profile {
         count_
     }
 
-    pub fn profile(self) {
-        // let count_ = Profile::new("asdfasdf\n\n\nasdf");
-        // println!("{:?}", self.count_only());
+    pub fn profile(mut self) {
+        let mut lines = self.buf.unwrap().lines();
 
-        // println!("{:?}", get_headers(self.buf.unwrap()));
-        for i in get_headers(self.buf.unwrap()).iter() {
-            println!("{}", i);
+        // get headers and assign to columns
+        self.columns = Some(
+            lines
+                .next()
+                .unwrap()
+                .expect("couldn't get first line")
+                .split(",")
+                .into_iter()
+                .map(|x| Column {
+                    name: x.to_string(),
+                    datatype: None,
+                })
+                .collect::<Vec<Column>>(),
+        );
+
+        // profile data
+        for line in lines {
+            for (x, y) in line
+                .unwrap()
+                .split(",")
+                .into_iter()
+                .zip(self.columns.as_mut().unwrap().into_iter())
+            {
+                y.identify_type(x);
+                // println!("{} : {:?}", x, y.datatype);
+            }
         }
 
-        // println!("{}", count(get_buf(filename)));
-        // println!("{}", count_alt(get_buf(filename)));
-        // println!("{:?}", first_col(get_buf(filename)));
-        // println!("{:?}", all_col(get_buf(filename)));
-        // println!("{}", count(get_buf(filename)));
-        // println!("{}", count_alt(get_buf(filename)));
-        // println!("{:?}", count_eclark(get_buf(filename)));
-        // first_col(get_buf(filename));
-        // all_col(get_buf(filename));
+        println!("{:?}", &self.columns);
     }
 }
 
@@ -125,27 +148,27 @@ impl From<&'static str> for Profile {
     }
 }
 
-fn first_col<F: io::Read>(buf: BufReader<F>) -> Vec<String> {
-    let mut first_word: Vec<String> = Vec::new();
-    for line in buf.lines() {
-        first_word.push(line.unwrap().split(",").next().unwrap_or("").to_string());
-    }
-    first_word
-}
-fn all_col<F: io::Read>(buf: BufReader<F>) {
-    for line in buf.lines() {
-        for (i, col) in line.unwrap().split(",").enumerate() {
-            println!("{}: {}", i, col);
-        }
-    }
-}
-fn get_headers<F: io::Read>(buf: BufReader<F>) -> Vec<String> {
-    buf.lines()
-        .next()
-        .unwrap()
-        .expect("couldn't get first line")
-        .split(",")
-        .into_iter()
-        .map(|x| x.to_string())
-        .collect::<Vec<String>>()
-}
+// fn first_col<F: io::Read>(buf: BufReader<F>) -> Vec<String> {
+//     let mut first_word: Vec<String> = Vec::new();
+//     for line in buf.lines() {
+//         first_word.push(line.unwrap().split(",").next().unwrap_or("").to_string());
+//     }
+//     first_word
+// }
+// fn all_col<F: io::Read>(buf: BufReader<F>) {
+//     for line in buf.lines() {
+//         for (i, col) in line.unwrap().split(",").enumerate() {
+//             println!("{}: {}", i, col);
+//         }
+//     }
+// }
+// fn get_headers<F: io::Read>(buf: BufReader<F>) -> Vec<String> {
+//     buf.lines()
+//         .next()
+//         .unwrap()
+//         .expect("couldn't get first line")
+//         .split(",")
+//         .into_iter()
+//         .map(|x| x.to_string())
+//         .collect::<Vec<String>>()
+// }
